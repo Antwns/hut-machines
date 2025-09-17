@@ -1,0 +1,18 @@
+# IntelliJ / IDEA
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+out/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# If you keep local JARs, DO NOT ignore libs/
+#libs/
