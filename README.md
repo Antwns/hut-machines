@@ -1,5 +1,6 @@
-# Nova-Addon-Template
-Template for creating Nova addons
+# Nova-Addon
+Plugin Expansion for Nova with Itemsadder support
 
-# Create your own Nova addon
-Visit [our documentation](https://xenondevs.xyz/docs/nova/addon/) for a guide on how to create Nova addons
+# GOAL
+Greate your own Tekkit-Like machines via config & gui support
+
