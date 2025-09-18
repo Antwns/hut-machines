@@ -1,0 +1,10 @@
+commands:
+  hm:
+    description: HutMachines debug command
+    usage: /hm <make|here|delete> [machineId]
+    permission: hutmachines.command
+
+permissions:
+  hutmachines.command:
+    description: Use HutMachines debug commands
+    default: op

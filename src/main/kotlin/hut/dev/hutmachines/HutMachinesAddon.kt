@@ -1,5 +1,6 @@
 package hut.dev.hutmachines
 
+import hut.dev.hutmachines.commands.HmCommand
 import hut.dev.hutmachines.workers.ConfigWorker
 import hut.dev.hutmachines.workers.MachineSpecRegistry
 import xyz.xenondevs.nova.addon.Addon
@@ -13,11 +14,17 @@ object HutMachinesAddon : Addon()
 object HutMachinesBootstrap {
     @InitFun
     fun loadAndPrepare() {
-        // 1) load yaml
         ConfigWorker.loadAll(HutMachinesAddon)
         HutMachinesAddon.logger.info("Config loaded: ${ConfigWorker.machines.size} machines")
-
-        // 2) prepare registry (no real Nova registrations yet)
         MachineSpecRegistry.registerAll(HutMachinesAddon)
+    }
+}
+
+@Init(stage = InitStage.POST_WORLD)
+object HutMachinesServerInit {
+    @InitFun
+    fun registerCommands() {
+        HmCommand.register(HutMachinesAddon)
+        HutMachinesAddon.logger.info("Registered /hm debug command.")
     }
 }
