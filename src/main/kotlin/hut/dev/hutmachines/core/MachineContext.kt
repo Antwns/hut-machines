@@ -5,12 +5,14 @@ import hut.dev.hutmachines.model.RecipeSpec
 import org.bukkit.World
 import xyz.xenondevs.nova.addon.Addon
 import java.util.UUID
+import org.bukkit.plugin.Plugin
+
 /**
  * Runtime context for a single placed machine block.
  * We’ll attach inventories/energy holders here in the TE step.
  */
 class MachineContext(
-    val addon: Addon,
+    val plugin: Plugin,
     val machineId: String,
     val spec: MachineSpec,
     val recipes: List<RecipeSpec>,

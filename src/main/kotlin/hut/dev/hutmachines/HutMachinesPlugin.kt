@@ -8,15 +8,11 @@ import org.bukkit.plugin.java.JavaPlugin
 
 class HutMachinesPlugin : JavaPlugin() {
     override fun onEnable() {
-        // 1) Load YAMLs and validate
         ConfigWorker.loadAll(this)
-
-        // 2) Prepare machine registrations (just a registry right now)
         MachineSpecRegistry.registerAll(this)
 
-        // 3) Register /hm delete (Brigadier) the Paper way
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS) { event ->
-            event.registrar().register(buildHmRoot())
+            event.registrar().register(buildHmRoot(this))   // <-- pass 'this'
         }
         logger.info("Registered Paper Brigadier command: /hm delete")
     }

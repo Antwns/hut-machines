@@ -1,12 +1,17 @@
 package hut.dev.hutmachines.commands
 
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.builder.RequiredArgumentBuilder
 import com.mojang.brigadier.tree.LiteralCommandNode
+import hut.dev.hutmachines.workers.ConfigWorker
+import hut.dev.hutmachines.workers.MachineInstanceRegistryWorker
+import hut.dev.hutmachines.workers.MachineSpecRegistry
 import io.papermc.paper.command.brigadier.CommandSourceStack
 import org.bukkit.entity.Player
-import hut.dev.hutmachines.workers.MachineInstanceRegistryWorker
+import org.bukkit.plugin.java.JavaPlugin
 
-fun buildHmRoot(): LiteralCommandNode<CommandSourceStack> {
+fun buildHmRoot(plugin: JavaPlugin): LiteralCommandNode<CommandSourceStack> {
     val root = LiteralArgumentBuilder.literal<CommandSourceStack>("hm")
         .requires { src -> src.sender.hasPermission("hutmachines.admin") }
         .build()
@@ -18,9 +23,7 @@ fun buildHmRoot(): LiteralCommandNode<CommandSourceStack> {
                 sender.sendMessage("§cOnly players can use this.")
                 return@executes 0
             }
-
-            val target = sender.getTargetBlockExact(6)
-            if (target == null) {
+            val target = sender.getTargetBlockExact(6) ?: run {
                 sender.sendMessage("§eLook at a block within 6 blocks to get the relevant information.")
                 return@executes 0
             }
@@ -33,12 +36,59 @@ fun buildHmRoot(): LiteralCommandNode<CommandSourceStack> {
                 sender.sendMessage("§7No HutMachine at §f${worldName} ${loc.blockX},${loc.blockY},${loc.blockZ}.")
                 return@executes 0
             }
-
             sender.sendMessage("§aHutMachine removed at §f${worldName} ${loc.blockX},${loc.blockY},${loc.blockZ}.")
             1
         }
         .build()
 
+    val markNode = LiteralArgumentBuilder.literal<CommandSourceStack>("mark")
+        .then(
+            RequiredArgumentBuilder.argument<CommandSourceStack, String>("id", StringArgumentType.word())
+                .suggests { _, b ->
+                    MachineSpecRegistry.machines.keys.forEach { b.suggest(it) }
+                    b.buildFuture()
+                }
+                .executes { ctx ->
+                    val sender = ctx.source.sender
+                    if (sender !is Player) {
+                        sender.sendMessage("§cOnly players can use this.")
+                        return@executes 0
+                    }
+
+                    val id = StringArgumentType.getString(ctx, "id")
+                    val reg = MachineSpecRegistry.get(id) ?: run {
+                        sender.sendMessage("§cUnknown machine id: §f$id")
+                        return@executes 0
+                    }
+
+                    val target = sender.getTargetBlockExact(6) ?: run {
+                        sender.sendMessage("§eLook at a block within 6 blocks.")
+                        return@executes 0
+                    }
+
+                    val loc = target.location
+                    val world = loc.world ?: run {
+                        sender.sendMessage("§cWorld missing.")
+                        return@executes 0
+                    }
+
+                    MachineInstanceRegistryWorker.createInstance(
+                        plugin = plugin,                   // <-- pass it here
+                        machineId = id,
+                        spec = reg.spec,
+                        recipes = ConfigWorker.getRecipesFor(id),
+                        world = world,
+                        x = loc.blockX, y = loc.blockY, z = loc.blockZ,
+                        owner = sender.uniqueId
+                    )
+
+                    sender.sendMessage("§aHutMachine §f$id §acreated at §f${world.name} ${loc.blockX},${loc.blockY},${loc.blockZ}.")
+                    1
+                }
+        )
+        .build()
+
     root.addChild(deleteNode)
+    root.addChild(markNode)
     return root
 }

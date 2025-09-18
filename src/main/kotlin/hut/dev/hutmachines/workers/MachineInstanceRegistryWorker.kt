@@ -1,11 +1,13 @@
 // src/main/kotlin/hut/dev/hutmachines/workers/MachineInstanceRegistryWorker.kt
 package hut.dev.hutmachines.workers
 
+import hut.dev.hutmachines.HutMachinesPlugin
 import hut.dev.hutmachines.core.BlockKey
 import hut.dev.hutmachines.core.MachineContext
 import hut.dev.hutmachines.model.MachineSpec
 import hut.dev.hutmachines.model.RecipeSpec
 import org.bukkit.World
+import org.bukkit.plugin.Plugin
 import xyz.xenondevs.nova.addon.Addon
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -16,7 +18,7 @@ object MachineInstanceRegistryWorker {
     val instances: Map<BlockKey, MachineContext> get() = _instances
 
     fun createInstance(
-        addon: Addon,
+        plugin: Plugin,
         machineId: String,
         spec: MachineSpec,
         recipes: List<RecipeSpec>,
@@ -24,7 +26,7 @@ object MachineInstanceRegistryWorker {
         x: Int, y: Int, z: Int,
         owner: UUID?
     ): MachineContext {
-        val ctx = MachineContext(addon, machineId, spec, recipes, world, x, y, z, owner)
+        val ctx = MachineContext(plugin, machineId, spec, recipes, world, x, y, z, owner)
         _instances[ctx.blockKey()] = ctx
         return ctx
     }
