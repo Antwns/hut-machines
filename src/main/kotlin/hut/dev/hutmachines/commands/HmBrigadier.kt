@@ -21,7 +21,7 @@ fun buildHmRoot(): LiteralCommandNode<CommandSourceStack> {
 
             val target = sender.getTargetBlockExact(6)
             if (target == null) {
-                sender.sendMessage("§eLook at a block within 6 blocks.")
+                sender.sendMessage("§eLook at a block within 6 blocks to get the relevant information.")
                 return@executes 0
             }
 
