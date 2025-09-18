@@ -1,13 +1,4 @@
-# src/main/resources/paper-plugin.yml
 name: HutMachines
-main: hut.dev.hutmachines.HutMachinesPlugin
 version: 0.1.0
+main: hut.dev.hutmachines.HutMachinesPlugin
 api-version: '1.21'
-commands:
-  hm:
-    description: Hut Machines admin command
-    usage: /hm <make|here|delete>
-    permission: hutmachines.admin
-permissions:
-  hutmachines.admin:
-    default: op
