@@ -1,6 +1,5 @@
 package hut.dev.hutmachines
 
-import hut.dev.hutmachines.commands.HmCommand
 import hut.dev.hutmachines.workers.ConfigWorker
 import hut.dev.hutmachines.workers.MachineSpecRegistry
 import xyz.xenondevs.nova.addon.Addon
@@ -17,14 +16,5 @@ object HutMachinesBootstrap {
         ConfigWorker.loadAll(HutMachinesAddon)
         HutMachinesAddon.logger.info("Config loaded: ${ConfigWorker.machines.size} machines")
         MachineSpecRegistry.registerAll(HutMachinesAddon)
-    }
-}
-
-@Init(stage = InitStage.POST_WORLD)
-object HutMachinesServerInit {
-    @InitFun
-    fun registerCommands() {
-        HmCommand.register(HutMachinesAddon)
-        HutMachinesAddon.logger.info("Registered /hm debug command.")
     }
 }
