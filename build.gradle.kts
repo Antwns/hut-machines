@@ -3,6 +3,7 @@ version = "0.1.0"
 
 plugins {
     kotlin("jvm") version "2.2.0"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 kotlin { jvmToolchain(21) }
@@ -28,5 +29,12 @@ dependencies {
     compileOnly(files("libs/api-itemsadder-4.0.10.jar")) // <- IA API jar (or resolve from devs.beer if you want)
     compileOnly(files("libs/Nova-0.20.5+MC-1.21.8.jar")) // <- Nova Plugin Jar
 
+    implementation(kotlin("stdlib"))
     implementation("org.yaml:snakeyaml:2.2")
+}
+
+tasks {
+    jar { enabled = false }                 // don’t build the skinny jar
+    shadowJar { archiveClassifier.set("") } // produce the main, shaded jar
+    build { dependsOn(shadowJar) }
 }

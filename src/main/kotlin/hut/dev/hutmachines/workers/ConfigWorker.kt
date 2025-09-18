@@ -1,27 +1,17 @@
 package hut.dev.hutmachines.workers
-import hut.dev.hutmachines.model.*
 
+import hut.dev.hutmachines.model.*
+import org.bukkit.plugin.Plugin
 import org.yaml.snakeyaml.Yaml
-import xyz.xenondevs.nova.addon.Addon
 import java.io.File
 
-// ======== data model (matches our agreed YAML) ===============================
+/**
+ * Loads machine specs & recipes from /plugins/HutMachines/{machines,recipes}
+ * and validates them.
+ */
+object ConfigWorker {
 
-
-
-
-
-
-
-
-
-
-
-// ======== loader/validator ====================================================
-
-internal object ConfigWorker {
-
-    // Loaded data (read-only from outside)
+    // Loaded data (read-only outside)
     private val machinesMutable = linkedMapOf<String, MachineSpec>()
     private val recipesMutable = linkedMapOf<String, List<RecipeSpec>>()
 
@@ -31,33 +21,35 @@ internal object ConfigWorker {
     private val yaml = Yaml()
     private val chestSizes = setOf(9, 18, 27, 36, 45, 54)
 
-    fun loadAll(addon: Addon) {
+    fun loadAll(plugin: Plugin) {
         machinesMutable.clear()
         recipesMutable.clear()
 
-        val base = addon.dataFolder.toFile() // plugins/Nova/addons/hut-machines
+        val base = plugin.dataFolder.apply { if (!exists()) mkdirs() }
         val machinesDir = File(base, "machines").apply { if (!exists()) mkdirs() }
         val recipesDir  = File(base, "recipes").apply { if (!exists()) mkdirs() }
 
-        // load machines
-        machinesDir.listFiles { f -> f.isFile && f.name.endsWith(".yml", true) }
+        // machines
+        machinesDir.listFiles { f -> f.isFile && f.name.endsWith(".yml", ignoreCase = true) }
             ?.sortedBy { it.name }
             ?.forEach { file ->
                 runCatching { loadMachinesFile(file) }
-                    .onFailure { addon.logger.warn("[ConfigWorker] Failed to load ${file.name}: ${it.message}") }
+                    .onFailure { plugin.logger.warning("[ConfigWorker] Failed to load ${file.name}: ${it.message}") }
             }
 
-        // load recipes (per machine)
-        recipesDir.listFiles { f -> f.isFile && f.name.endsWith(".yml", true) }
+        // recipes
+        recipesDir.listFiles { f -> f.isFile && f.name.endsWith(".yml", ignoreCase = true) }
             ?.sortedBy { it.name }
             ?.forEach { file ->
                 runCatching { loadRecipesFile(file) }
-                    .onFailure { addon.logger.warn("[ConfigWorker] Failed to load ${file.name}: ${it.message}") }
+                    .onFailure { plugin.logger.warning("[ConfigWorker] Failed to load ${file.name}: ${it.message}") }
             }
 
-        // validate after both are loaded (cross-check slots etc.)
-        validateAll(addon)
-        addon.logger.info("[ConfigWorker] Loaded ${machinesMutable.size} machines, ${recipesMutable.values.sumOf { it.size }} recipes")
+        validateAll(plugin)
+        plugin.logger.info(
+            "[ConfigWorker] Loaded ${machinesMutable.size} machines, " +
+                    "${recipesMutable.values.sumOf { it.size }} recipes"
+        )
     }
 
     private fun loadMachinesFile(file: File) {
@@ -128,9 +120,7 @@ internal object ConfigWorker {
                 gui = gui
             )
 
-            if (machinesMutable.containsKey(id)) {
-                throw IllegalArgumentException("duplicate machine id '$id' across files")
-            }
+            require(id !in machinesMutable) { "duplicate machine id '$id' across files" }
             machinesMutable[id] = spec
         }
     }
@@ -149,15 +139,14 @@ internal object ConfigWorker {
                 val durability = (m["durability"] as? Map<*, *>)?.mapKeys { it.key.toString().toInt() }?.mapValues { (it.value as? Number)?.toInt() ?: 0 } ?: emptyMap()
                 RecipeSpec(name, inputs, outputs, duration, ept, durability)
             }
-            // merge if multiple files define same machine key; append
+            // merge if multiple files define the same machine key
             val existing = recipesMutable[machineId] ?: emptyList()
             recipesMutable[machineId] = existing + parsed
         }
     }
 
-    private fun validateAll(addon: Addon) {
+    private fun validateAll(plugin: Plugin) {
         for ((id, spec) in machinesMutable) {
-            // inventory size
             val invSize = when (spec.inventory.type) {
                 InventoryKind.HOPPER -> 5
                 InventoryKind.DISPENSER -> 9
@@ -169,10 +158,11 @@ internal object ConfigWorker {
                 }
             }
 
-            // slots within bounds & unique
             fun checkSlots(name: String, slots: List<Int>) {
                 slots.forEach {
-                    require(it in 0 until invSize) { "machine '$id': slot $it in '$name' out of bounds 0..${invSize - 1}" }
+                    require(it in 0 until invSize) {
+                        "machine '$id': slot $it in '$name' out of bounds 0..${invSize - 1}"
+                    }
                 }
             }
             checkSlots("slots.input", spec.slots.input)
@@ -180,40 +170,38 @@ internal object ConfigWorker {
             checkSlots("slots.fuel", spec.slots.fuel)
 
             val all = spec.slots.input + spec.slots.output + spec.slots.fuel
-            require(all.size == all.toSet().size) { "machine '$id': input/output/fuel slots must be unique" }
-
-            // toggle slot within bounds (only if enabled)
-            if (spec.gui.toggle.enabled) {
-                require(spec.gui.toggle.slot in 0 until invSize) { "machine '$id': gui.toggle.slot out of bounds for inventory" }
+            require(all.size == all.toSet().size) {
+                "machine '$id': input/output/fuel slots must be unique"
             }
 
-            // recipes sanity (if present)
+            if (spec.gui.toggle.enabled) {
+                require(spec.gui.toggle.slot in 0 until invSize) {
+                    "machine '$id': gui.toggle.slot out of bounds for inventory"
+                }
+            }
+
             val recipeList = recipesMutable[id] ?: emptyList()
             for (r in recipeList) {
-                // inputs refer to declared input slots
                 require(r.inputs.keys.all { it in spec.slots.input }) {
                     "machine '$id': recipe '${r.name ?: "<unnamed>"}' references input slots not in machine.slots.input"
                 }
-                // outputs refer to declared output slots
                 require(r.outputs.keys.all { it in spec.slots.output }) {
                     "machine '$id': recipe '${r.name ?: "<unnamed>"}' references output slots not in machine.slots.output"
                 }
-                // durability refers to declared input slots
                 require(r.durability.keys.all { it in spec.slots.input }) {
                     "machine '$id': recipe '${r.name ?: "<unnamed>"}' durability refers to non-input slots"
                 }
             }
         }
 
-        // warn if recipe exists for unknown machine
         for (mid in recipesMutable.keys) {
             if (mid !in machinesMutable.keys) {
-                addon.logger.warn("[ConfigWorker] recipes file defines unknown machine id '$mid' (no matching machine in /machines)")
+                plugin.logger.warning("[ConfigWorker] recipes file defines unknown machine id '$mid' (no matching machine in /machines)")
             }
         }
     }
 
-    // ======== helpers =========================================================
+    // --- helpers -------------------------------------------------------------
 
     private fun Any?.asIntList(): List<Int> =
         (this as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: emptyList()
