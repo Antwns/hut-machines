@@ -88,7 +88,46 @@ fun buildHmRoot(plugin: JavaPlugin): LiteralCommandNode<CommandSourceStack> {
         )
         .build()
 
+    // --- /hm info ---
+    val infoNode = LiteralArgumentBuilder.literal<CommandSourceStack>("info")
+        .executes { ctx ->
+            val sender = ctx.source.sender
+            if (sender !is Player) {
+                sender.sendMessage("§cOnly players can use this.")
+                return@executes 0
+            }
+
+            val target = sender.getTargetBlockExact(6) ?: run {
+                sender.sendMessage("§eLook at a block within 6 blocks.")
+                return@executes 0
+            }
+
+            val loc = target.location
+            val worldName = loc.world?.name ?: return@executes 0
+            val inst = MachineInstanceRegistryWorker.get(worldName, loc.blockX, loc.blockY, loc.blockZ)
+            if (inst == null) {
+                sender.sendMessage("§7No HutMachine at §f${worldName} ${loc.blockX},${loc.blockY},${loc.blockZ}.")
+                return@executes 0
+            }
+
+            val spec = inst.spec
+            val recipes = inst.recipes
+            val ownerStr = inst.owner?.toString()?.take(8) ?: "none"
+
+            sender.sendMessage("§aHutMachine info:")
+            sender.sendMessage(" §7id: §f${inst.machineId}")
+            sender.sendMessage(" §7model: §f${spec.model}")
+            sender.sendMessage(" §7inv: §f${spec.inventory.type} ${spec.inventory.size}")
+            sender.sendMessage(" §7slots: §fin=${spec.slots.input} out=${spec.slots.output} fuel=${spec.slots.fuel}")
+            sender.sendMessage(" §7processing: §fauto=${spec.processing.auto} interval=${spec.processing.intervalTicks}t")
+            sender.sendMessage(" §7recipes: §f${recipes.size}")
+            sender.sendMessage(" §7owner: §f$ownerStr")
+            1
+        }
+        .build()
+
     root.addChild(deleteNode)
     root.addChild(markNode)
+    root.addChild(infoNode)
     return root
 }

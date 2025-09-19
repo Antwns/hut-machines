@@ -19,7 +19,6 @@ class HutMachinesPlugin : JavaPlugin() {
             logger.info("[HutMachines] About to register /${node.literal} with children: ${node.children.map { it.name }}")
             // simplest: node + a description string
             event.registrar().register(node, "HutMachines root command")
-
         }
 
         logger.info("Registered Paper Brigadier command: /hm (mark, delete)")
