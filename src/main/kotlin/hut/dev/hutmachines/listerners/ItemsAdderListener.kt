@@ -1,10 +1,11 @@
 package hut.dev.hutmachines.listeners
 
-import hut.dev.hutmachines.db.DatabaseWorker
-import hut.dev.hutmachines.db.DbMachine
+import hut.dev.hutmachines.workers.MachineInstanceRegistryWorker
+import hut.dev.hutmachines.workers.MachineSpecRegistry
+import hut.dev.hutmachines.model.MachineSpec
+import hut.dev.hutmachines.model.RecipeSpec
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import java.util.UUID
 import org.bukkit.plugin.Plugin
 
 class ItemsAdderListener(private val plugin: Plugin) : Listener {
@@ -14,24 +15,27 @@ class ItemsAdderListener(private val plugin: Plugin) : Listener {
         val block = e.block
         val iaId = e.namespacedID ?: return
 
-        val id = UUID.randomUUID()
-        val m = DbMachine(
-            id = id,
-            typeId = iaId, // later: map IA id -> your HutMachines spec id
-            world = block.world.name,
+        // Resolve spec from registry; if missing, ignore placement
+        val reg = MachineSpecRegistry.get(iaId) ?: return
+        val spec: MachineSpec = reg.spec
+        val recipes: List<RecipeSpec> = emptyList() // hook up when you have per-machine recipes
+
+        MachineInstanceRegistryWorker.createInstance(
+            plugin = plugin,
+            machineId = iaId,
+            spec = spec,
+            recipes = recipes,
+            world = block.world,
             x = block.x, y = block.y, z = block.z,
-            autoProcess = false
+            owner = e.player?.uniqueId
         )
-        DatabaseWorker.INSTANCE.upsertMachine(m)
-        plugin.logger.info("[HutMachines][IA] Placed $iaId @ ${block.world.name} ${block.x},${block.y},${block.z} (id=$id)")
+        plugin.logger.info("[HutMachines][IA] Placed $iaId @ ${block.world.name} ${block.x},${block.y},${block.z}")
     }
 
     @EventHandler
     fun onIACustomBlockBreak(e: dev.lone.itemsadder.api.Events.CustomBlockBreakEvent) {
         val block = e.block
-        val deleted = DatabaseWorker.INSTANCE.deleteMachineAt(block.world.name, block.x, block.y, block.z)
-        if (deleted) {
-            plugin.logger.info("[HutMachines][IA] Removed machine @ ${block.world.name} ${block.x},${block.y},${block.z}")
-        }
+        MachineInstanceRegistryWorker.remove(block.world.name, block.x, block.y, block.z)
+        plugin.logger.info("[HutMachines][IA] Removed machine @ ${block.world.name} ${block.x},${block.y},${block.z}")
     }
 }

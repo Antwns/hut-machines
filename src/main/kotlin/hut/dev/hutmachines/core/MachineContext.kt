@@ -30,57 +30,49 @@ class MachineContext(
      * Feed this from your actual inventory handling code.
      */
     data class SlotData(
-        val itemNbtJson: String?,  // your serialized ItemStack (JSON/NBT), or null if empty
-        val amount: Int?,          // stack size (nullable = unknown/empty)
+        val itemNbtJson: String?,  // serialized ItemStack (JSON/NBT), or null if empty
+        val amount: Int?,          // stack size
         val durability: Int?       // optional durability metadata
     )
 
-    /** Sparse slot storage: only store indices that currently hold something meaningful. */
+    /** Sparse slot storage: only indices with meaningful content. */
     private val slots: ConcurrentHashMap<Int, SlotData> = ConcurrentHashMap()
+
+    /** Dirty tracking for debounced DB flushes. */
+    @Volatile var dirty: Boolean = false
+        private set
 
     fun blockKey(): BlockKey = BlockKey(world.name, x, y, z)
 
-    // -------------------------
-    // Slot helpers (simple API)
-    // -------------------------
-
-    /** Replace/insert a slot snapshot. Call this whenever a slot changes. */
+    /** Replace/insert a slot snapshot. Mark dirty when changed. */
     fun setSlot(index: Int, itemNbtJson: String?, amount: Int?, durability: Int?) {
         if (itemNbtJson == null && amount == null && durability == null) {
-            // treat as empty
-            slots.remove(index)
+            if (slots.remove(index) != null) dirty = true
         } else {
-            slots[index] = SlotData(itemNbtJson, amount, durability)
+            val prev = slots[index]
+            val next = SlotData(itemNbtJson, amount, durability)
+            if (prev != next) {
+                slots[index] = next
+                dirty = true
+            }
         }
     }
 
     /** Explicitly clear a slot. */
     fun clearSlot(index: Int) {
-        slots.remove(index)
+        if (slots.remove(index) != null) dirty = true
     }
 
-    /** Read-only view (e.g., for GUIs or debugging). */
     fun getSlot(index: Int): SlotData? = slots[index]
-
-    /** Current populated slot indices (not necessarily contiguous). */
     fun populatedSlotIndices(): Set<Int> = slots.keys
-
-    // -------------------------------------------
-    // Persistence: build a pure DbSlot snapshot
-    // -------------------------------------------
 
     /**
      * Convert current in-memory slots to DbSlot list (pure data, safe for async DB writes).
-     * We deliberately set a placeholder UUID here; the registry worker resolves the real machineId
-     * by block position and normalizes the list before writing to DB.
+     * Machine id will be normalized to the real UUID by the registry before writing to DB.
      */
     fun toDbSlots(): List<DbSlot> {
-        // Placeholder; will be replaced by MachineInstanceRegistryWorker normalization.
         val ZERO_UUID = UUID(0L, 0L)
-
-        // Sort indices for stable ordering (not required, just neat for debugging).
         val indices = slots.keys.toList().sorted()
-
         return indices.map { idx ->
             val s = slots[idx]!!
             DbSlot(
@@ -92,6 +84,9 @@ class MachineContext(
             )
         }
     }
+
+    /** Mark clean after a successful DB write. */
+    fun clearDirty() { dirty = false }
 
     // Placeholders for next steps (TE will wire these):
     // lateinit var inputInv: ???   // stored inventory for inputs

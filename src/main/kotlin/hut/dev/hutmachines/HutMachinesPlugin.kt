@@ -14,7 +14,7 @@ import java.nio.file.Paths
 
 class HutMachinesPlugin : JavaPlugin() {
 
-    var SyncToken = 517 //Use THIS to sync.
+    var SyncToken = 518 //Use THIS to sync.
 
     lateinit var pdc: PdcBridge
     lateinit var debouncedWriter: DebouncedWriter
@@ -58,11 +58,17 @@ class HutMachinesPlugin : JavaPlugin() {
     }
 
     override fun onDisable() {
-        // If/when you track dirty machines:
-        // debouncedWriter.flushAll { id ->
-        //     val inst = MachineInstanceRegistryWorker.instance[id] ?: return@flushAll
-        //     val snapshot = buildDbSlotsFromRuntime(inst) // pure data, no Bukkit objects
-        //     DatabaseWorker.INSTANCE.replaceSlots(id, snapshot)
-        // }
+        // Flush only dirty contexts to minimize work on shutdown
+        val dirty = hut.dev.hutmachines.workers.MachineInstanceRegistryWorker.dirtyContextsSnapshot()
+        if (dirty.isNotEmpty()) {
+            logger.info("HutMachines: flushing ${dirty.size} dirty machine(s) to DB...")
+            dirty.forEach { ctx ->
+                val slots = ctx.toDbSlots()
+                hut.dev.hutmachines.workers.MachineInstanceRegistryWorker.flushSlotsNow(
+                    this, ctx.world, ctx.x, ctx.y, ctx.z, slots
+                )
+                hut.dev.hutmachines.workers.MachineInstanceRegistryWorker.markClean(ctx)
+            }
+        }
     }
 }

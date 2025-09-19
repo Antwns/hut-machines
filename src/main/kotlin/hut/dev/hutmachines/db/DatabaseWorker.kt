@@ -54,6 +54,7 @@ class DatabaseWorker private constructor() {
 
     private fun ensureSchema() {
         ds.connection.use { c ->
+            // Tables
             c.createStatement().use { st ->
                 st.addBatch("""CREATE TABLE IF NOT EXISTS SCHEMA_INFO (version INT NOT NULL)""")
                 st.addBatch(
@@ -85,7 +86,16 @@ class DatabaseWorker private constructor() {
                 )
                 st.executeBatch()
             }
-            // seed version if empty
+            // Defensive uniqueness: one machine per block position
+            c.createStatement().use { st ->
+                st.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS ux_machine_pos
+                    ON MACHINES(world, x, y, z)
+                    """.trimIndent()
+                )
+            }
+            // Seed schema version if empty
             var version: Int? = null
             c.createStatement().use { st ->
                 val rs = st.executeQuery("SELECT version FROM SCHEMA_INFO")
@@ -174,8 +184,6 @@ class DatabaseWorker private constructor() {
             }
         }
     }
-
-    // --- PATCH: helpers to resolve/delete by exact block position ---
 
     /** Returns the machine UUID at the given world/x/y/z, or null if none. */
     fun findMachineIdAt(world: String, x: Int, y: Int, z: Int): UUID? = ds.connection.use { c ->

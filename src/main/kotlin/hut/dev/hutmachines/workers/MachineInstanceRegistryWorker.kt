@@ -128,4 +128,12 @@ object MachineInstanceRegistryWorker {
             DatabaseWorker.INSTANCE.replaceSlots(id, normalized)
         }
     }
+    // Returns a shallow snapshot of all currently dirty contexts.
+    fun dirtyContextsSnapshot(): List<MachineContext> =
+        instances.values.filter { it.dirty }
+
+    /** Marks a context clean after a successful DB write. */
+    fun markClean(ctx: MachineContext) {
+        ctx.clearDirty()
+    }
 }
