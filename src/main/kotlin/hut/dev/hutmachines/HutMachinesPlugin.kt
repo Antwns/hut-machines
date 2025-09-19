@@ -24,6 +24,6 @@ class HutMachinesPlugin : JavaPlugin() {
             event.registrar().register(node, "HutMachines root command")
         }
 
-        logger.info("Registered Paper Brigadier command: /hm (mark, delete)")
+        logger.info("Registered Paper Brigadier command: /hm (mark, info, delete)")
     }
 }
