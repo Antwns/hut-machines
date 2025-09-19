@@ -29,6 +29,8 @@ dependencies {
     compileOnly(files("libs/api-itemsadder-4.0.10.jar")) // <- IA API jar (or resolve from devs.beer if you want)
     compileOnly(files("libs/Nova-0.20.5+MC-1.21.8.jar")) // <- Nova Plugin Jar
 
+    implementation("com.zaxxer:HikariCP:5.1.0")
+    implementation("com.h2database:h2:2.3.232")
     implementation(kotlin("stdlib"))
     implementation("org.yaml:snakeyaml:2.2")
 }
@@ -37,4 +39,18 @@ tasks {
     jar { enabled = false }                 // don’t build the skinny jar
     shadowJar { archiveClassifier.set("") } // produce the main, shaded jar
     build { dependsOn(shadowJar) }
+}
+
+tasks.register<Zip>("projectZip") {
+    group = "distribution"
+    description = "Zip entire project (sources)"
+    from(rootDir) {
+        include("**/*")
+        exclude(
+            ".git/**", ".idea/**", "**/*.iml",
+            ".gradle/**", "build/**", "out/**"
+        )
+    }
+    archiveFileName.set("${project.name}-${project.version}-project.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("zips"))
 }
