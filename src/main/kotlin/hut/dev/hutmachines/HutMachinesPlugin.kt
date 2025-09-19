@@ -8,6 +8,9 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
 import org.bukkit.plugin.java.JavaPlugin
 
 class HutMachinesPlugin : JavaPlugin() {
+
+    var SyncToken = 516 //Use THIS to sync.
+
     override fun onEnable() {
         // Load configs + register specs
         ConfigWorker.loadAll(this)
